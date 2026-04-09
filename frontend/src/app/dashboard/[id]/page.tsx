@@ -20,7 +20,8 @@ export default function Dashboard() {
 
     let ws: WebSocket;
 
-    fetch(`http://localhost:8000/v1/scans/${params.id}/report`)
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    fetch(`${API_URL}/v1/scans/${params.id}/report`)
       .then(res => res.json())
       .then(data => {
          if (data.scan?.status === "completed") {
@@ -34,7 +35,8 @@ export default function Dashboard() {
       .catch(console.error);
 
     function connectWs() {
-      ws = new WebSocket(`ws://localhost:8000/v1/scans/${params.id}/ws`);
+      const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+      ws = new WebSocket(`${WS_URL}/v1/scans/${params.id}/ws`);
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === "progress") {
@@ -46,7 +48,7 @@ export default function Dashboard() {
         } else if (data.type === "completed" || data.status === "completed") {
           setStatus("completed");
           if(ws) ws.close();
-          fetch(`http://localhost:8000/v1/scans/${params.id}/report`)
+          fetch(`${API_URL}/v1/scans/${params.id}/report`)
             .then(res => res.json())
             .then(reportData => {
               setReport(reportData);

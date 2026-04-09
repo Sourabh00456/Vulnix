@@ -33,7 +33,8 @@ function DashboardContent() {
     // Fetch initial state first
     const fetchScanData = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/v1/scans/${id}`);
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const res = await fetch(`${API_URL}/v1/scans/${id}`);
         const data = await res.json();
         setScan(data);
         setStatus(data.status);

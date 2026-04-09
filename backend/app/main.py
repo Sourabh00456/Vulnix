@@ -1,4 +1,5 @@
 import logging
+import os
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,10 +23,18 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title=settings.PROJECT_NAME)
 app.state.limiter = limiter
 
+ENV = os.getenv("ENV", "production")
+
+if ENV != "production":
+    allow_origins = ["*"]
+else:
+    allow_origins = [
+        "https://vulnix-3fajnd8ri-sourabh00456s-projects.vercel.app"
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
