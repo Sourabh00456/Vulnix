@@ -36,7 +36,7 @@ export default function Home() {
       }
 
       if (data.id) {
-        router.push(`/dashboard?id=${data.id}`);
+        router.push(`/dashboard/scans/${data.id}`);
       }
     } catch (e: any) {
       setErrorMsg(e.message);

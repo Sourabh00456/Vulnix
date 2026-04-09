@@ -6,6 +6,16 @@ import uuid
 
 Base = declarative_base()
 
+class Organization(Base):
+    __tablename__ = "organizations"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    users = relationship("User", foreign_keys="[User.org_id]", back_populates="organization")
+    scans = relationship("Scan", back_populates="organization")
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -13,8 +23,14 @@ class User(Base):
     hashed_password = Column(String)
     plan_type = Column(String, default="free") # free, pro
     verification_token = Column(String, default=lambda: str(uuid.uuid4()))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    scan_count_today = Column(Integer, default=0)
+    stripe_customer_id = Column(String, nullable=True)
+    stripe_subscription_id = Column(String, nullable=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     
     scans = relationship("Scan", back_populates="owner")
+    organization = relationship("Organization", foreign_keys=[org_id], back_populates="users")
 
 class Scan(Base):
     __tablename__ = "scans"
@@ -27,8 +43,10 @@ class Scan(Base):
     threat_score = Column(Float, nullable=True)
     logs = Column(String, default="[]")
     created_at = Column(DateTime, default=datetime.utcnow)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     
     owner = relationship("User", back_populates="scans")
+    organization = relationship("Organization", back_populates="scans")
     vulnerabilities = relationship("Vulnerability", back_populates="scan")
     scan_logs = relationship("ScanLog", back_populates="scan")
 

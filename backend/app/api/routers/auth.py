@@ -7,7 +7,7 @@ from app.db import models
 from app.core import security
 from fastapi import HTTPException
 
-router = APIRouter(prefix="/v1/users", tags=["Users"])
+router = APIRouter(prefix="/v1/auth", tags=["Auth"])
 
 @router.post("/register", response_model=Token)
 def register(user: UserCreate, db: Session = Depends(get_db)):
