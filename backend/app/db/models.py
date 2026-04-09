@@ -37,6 +37,9 @@ class Scan(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     target_url = Column(String, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    scan_type = Column(String, default="quick") # quick, deep
+    schedule_type = Column(String, default="none") # none, daily, weekly
+    next_run_at = Column(DateTime, nullable=True)
     progress = Column(Integer, default=0)
     current_step = Column(String, default="queued")
     status = Column(String, default="queued")  # queued, running, completed, failed

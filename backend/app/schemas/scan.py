@@ -3,6 +3,8 @@ from typing import List, Optional, Any
 
 class ScanRequest(BaseModel):
     target_url: str
+    scan_type: Optional[str] = "quick"
+    schedule_type: Optional[str] = "none"
 
 class ScanResponse(BaseModel):
     id: str

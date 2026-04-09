@@ -231,14 +231,21 @@ def run_ai_and_finalize(db: Session, scan_id: str, open_ports: list, zap_alerts:
     
     publish_event(scan_id, "completed", 100, "Completed", {"log": "Pipeline executed successfully"})
 
-def run_synchronous_orchestrator(scan_id: str, target: str):
+def run_synchronous_orchestrator(scan_id: str, target: str, scan_type: str = "deep"):
     db: Session = SessionLocal()
     update_db_state(db, scan_id, 5, "Initializing", "running")
-    publish_event(scan_id, "progress", 5, "Initializing")
+    publish_event(scan_id, "progress", 5, f"Initializing {scan_type.upper()} Scan")
     try:
         domain, ip = run_recon(db, scan_id, target)
         open_ports = run_nmap(db, scan_id, ip, domain)
-        zap_alerts = run_zap(db, scan_id, target)
+        
+        zap_alerts = []
+        if scan_type.lower() == "deep":
+            zap_alerts = run_zap(db, scan_id, target)
+        else:
+            log_and_publish(db, scan_id, "Skipping ZAP Web Spider (Quick Scan)", 45, "ZAP")
+            update_db_state(db, scan_id, 70, "ZAP")
+            
         run_ai_and_finalize(db, scan_id, open_ports, zap_alerts)
     except Exception as general_error:
         update_db_state(db, scan_id, 0, "Failed", "failed") # Setting progress 0 or keeping it, but status Failed

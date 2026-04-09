@@ -2,7 +2,7 @@ import json
 import requests
 import socket
 import urllib.parse
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Depends, Request, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -61,9 +61,18 @@ def create_scan(request: Request, req: ScanRequest, db: Session = Depends(get_db
          # raise HTTPException(status_code=403, detail="Target verification failed. Add breachme-verify token to /.well-known/security.txt")
          pass # Allow bypass for Hackathon/MVP demo
 
+    next_run = None
+    if req.schedule_type == "daily":
+        next_run = datetime.utcnow() + timedelta(days=1)
+    elif req.schedule_type == "weekly":
+        next_run = datetime.utcnow() + timedelta(days=7)
+
     db_scan = models.Scan(
         target_url=req.target_url, 
         user_id=current_user.id,
+        scan_type=req.scan_type,
+        schedule_type=req.schedule_type,
+        next_run_at=next_run,
         progress=0,
         current_step="queued"
     )
