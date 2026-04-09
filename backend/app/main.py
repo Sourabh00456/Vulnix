@@ -11,7 +11,7 @@ from app.db.database import engine
 from app.db import models
 from app.core.rate_limiter import limiter
 
-from app.api.routers import scans, auth, history, dashboard
+from app.api.routers import scans, auth, history, dashboard, billing
 
 # Initialize logging structure
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -54,6 +54,7 @@ app.include_router(scans.router)
 app.include_router(auth.router)
 app.include_router(history.router)
 app.include_router(dashboard.router)
+app.include_router(billing.router)
 
 @app.get("/health")
 def health_check():

@@ -15,3 +15,4 @@ python-owasp-zap-v2.4==0.0.22
 slowapi==0.1.9
 python-dotenv
 httpx
+stripe

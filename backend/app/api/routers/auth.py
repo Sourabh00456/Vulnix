@@ -21,6 +21,16 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
+    # Create Default Organization inherently tied to user (MVP Single-tenant model)
+    default_org = models.Organization(name=f"{user.email.split('@')[0]}'s Organization", owner_id=new_user.id)
+    db.add(default_org)
+    db.commit()
+    db.refresh(default_org)
+    
+    # Update user association back to org
+    new_user.org_id = default_org.id
+    db.commit()
+    
     access_token = security.create_access_token(data={"sub": new_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
