@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk" });
@@ -36,6 +37,7 @@ export default function RootLayout({
         <button className="fixed bottom-8 right-8 w-16 h-16 hero-gradient rounded-full shadow-[0_8px_30px_rgba(212,56,13,0.3)] flex items-center justify-center group active:scale-90 transition-all z-50">
             <span className="material-symbols-outlined text-white text-3xl group-hover:rotate-90 transition-transform">add</span>
         </button>
+        <Analytics />
       </body>
     </html>
   );
