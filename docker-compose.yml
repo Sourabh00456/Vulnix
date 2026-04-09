@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: forensic_intelligence
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  zap:
+    image: zaproxy/zap-stable
+    command: zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true
+    ports:
+      - "8080:8080"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: "postgresql://postgres:password@db/forensic_intelligence"
+      REDIS_URL: "redis://redis:6379/0"
+      ZAP_URL: "http://zap:8080"
+      GEMINI_API_KEY: ""
+    depends_on:
+      - db
+      - redis
+      - zap
+    volumes:
+      - ./backend:/app/backend
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "backend.app.tasks.worker.celery", "worker", "--loglevel=info"]
+    environment:
+      DATABASE_URL: "postgresql://postgres:password@db/forensic_intelligence"
+      REDIS_URL: "redis://redis:6379/0"
+      ZAP_URL: "http://zap:8080"
+      GEMINI_API_KEY: ""
+    depends_on:
+      - db
+      - redis
+      - zap
+    volumes:
+      - ./backend:/app/backend
+      
+volumes:
+  postgres_data:
