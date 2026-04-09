@@ -11,6 +11,9 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<{ time: string; msg: string }[]>([]);
   const [status, setStatus] = useState("scanning");
   const [report, setReport] = useState<any>(null);
+  const [progress, setProgress] = useState(0);
+  const [step, setStep] = useState("Initializing...");
+  const [threatScore, setThreatScore] = useState(0);
 
   useEffect(() => {
     if (!params.id) return;
@@ -23,6 +26,7 @@ export default function Dashboard() {
          if (data.scan?.status === "completed") {
            setStatus("completed");
            setReport(data);
+           setThreatScore(data.scan?.threat_score || 0);
          } else {
            connectWs();
          }
@@ -33,15 +37,23 @@ export default function Dashboard() {
       ws = new WebSocket(`ws://localhost:8000/v1/scans/${params.id}/ws`);
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.log) {
+        if (data.type === "progress") {
+          if (typeof data.progress === 'number') setProgress(data.progress);
+          if (data.step) setStep(data.step);
+        } else if (data.type === "log" || data.log) {
           const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-          setLogs(prev => [...prev, { time, msg: data.log }]);
-        } else if (data.status === "completed") {
+          setLogs(prev => [...prev, { time, msg: data.log || data.message }]);
+        } else if (data.type === "completed" || data.status === "completed") {
           setStatus("completed");
           if(ws) ws.close();
           fetch(`http://localhost:8000/v1/scans/${params.id}/report`)
             .then(res => res.json())
-            .then(setReport);
+            .then(reportData => {
+              setReport(reportData);
+              setThreatScore(reportData.scan?.threat_score || 0);
+            });
+        } else if (data.type === "error") {
+          setStatus("failed");
         }
       };
     }
@@ -51,7 +63,6 @@ export default function Dashboard() {
     };
   }, [params.id]);
 
-  const threatScore = report?.scan?.threat_score || 0;
   const vulnerabilities = report?.vulnerabilities || [];
 
   return (
@@ -60,7 +71,7 @@ export default function Dashboard() {
         
         {/* Left Column: Risk Score & Logs */}
         <div className="lg:col-span-5 space-y-8">
-          <ThreatScore score={threatScore} status={status} />
+          <ThreatScore score={threatScore} status={status} progress={progress} step={step} />
           <LogsPanel logs={logs} status={status} />
         </div>
 

@@ -1,4 +1,4 @@
-export default function ThreatScore({ score, status, progress, step }: { score: number, status: string, progress: number, step: string }) {
+export default function ThreatScore({ score, status, progress = 0, step = "Idle" }: { score: number, status: string, progress?: number, step?: string }) {
   const riskLevel = score >= 90 ? "Critical Risk" : score >= 70 ? "Elevated Risk" : "Moderate Risk";
   const circleOffset = status === "scanning" 
       ? 552.92 - ((552.92 * progress) / 100) 
