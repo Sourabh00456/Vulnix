@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+export const dynamic = "force-dynamic";
+
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ThreatScore from "@/components/ThreatScore";
 import LogsPanel from "@/components/LogsPanel";
 import VulnerabilityCard from "@/components/VulnerabilityCard";
 
-export default function Dashboard() {
+function DashboardContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
   
@@ -57,7 +59,10 @@ export default function Dashboard() {
     });
 
     const connectWebSocket = () => {
-      ws = new WebSocket(`ws://localhost:8000/v1/scans/${id}/ws`);
+      if (typeof window === "undefined") return;
+      
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+      ws = new WebSocket(`${wsUrl}/v1/scans/${id}/ws`);
       
       ws.onopen = () => {
         console.log("WebSocket connected. Subscribed to Redis Events.");
@@ -167,5 +172,20 @@ export default function Dashboard() {
         
       </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+       <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[50vh]">
+          <p className="text-on-surface-variant mono flex items-center gap-3">
+             <span className="flex h-3 w-3 rounded-full bg-primary animate-pulse"></span>
+             Loading Dashboard Telemetry...
+          </p>
+       </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
