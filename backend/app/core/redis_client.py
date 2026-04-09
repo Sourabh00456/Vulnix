@@ -1,7 +1,7 @@
 import json
 import redis.asyncio as aioredis
 import redis
-from backend.app.core.config import settings
+from app.core.config import settings
 
 # Synchronous client (For Celery orchestration to push to pub/sub)
 sync_redis = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)

@@ -1,7 +1,7 @@
 import os
 import json
 from google import genai
-from backend.app.core.config import settings
+from app.core.config import settings
 
 def explain_vulnerability(vuln_title: str, description: str) -> dict:
     if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY.strip() == "":

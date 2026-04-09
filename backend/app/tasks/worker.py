@@ -7,7 +7,7 @@ celery = Celery(
     "breachme_tasks",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["backend.app.tasks.scan_tasks"]
+    include=["app.tasks.scan_tasks"]
 )
 
 celery.conf.update(

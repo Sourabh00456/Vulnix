@@ -8,13 +8,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
 
-from backend.app.schemas.scan import ScanRequest, ScanResponse, ScanReport
-from backend.app.db.database import get_db
-from backend.app.db import models
-from backend.app.core.security import get_current_user_optional, get_current_user
-from backend.app.core.rate_limiter import limiter
-from backend.app.tasks.scan_tasks import execute_scan
-from backend.app.core.redis_client import get_async_redis
+from app.schemas.scan import ScanRequest, ScanResponse, ScanReport
+from app.db.database import get_db
+from app.db import models
+from app.core.security import get_current_user_optional, get_current_user
+from app.core.rate_limiter import limiter
+from app.tasks.scan_tasks import execute_scan
+from app.core.redis_client import get_async_redis
 
 router = APIRouter(prefix="/v1/scans", tags=["Scans"])
 

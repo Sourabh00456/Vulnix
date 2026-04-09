@@ -1,7 +1,7 @@
 import json
 import requests
 import time
-from backend.app.core.config import settings
+from app.core.config import settings
 
 class ZapService:
     def __init__(self):

@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
-from backend.app.schemas.scan import ScanResponse
-from backend.app.db.database import get_db
-from backend.app.db import models
-from backend.app.core.security import get_current_user
+from app.schemas.scan import ScanResponse
+from app.db.database import get_db
+from app.db import models
+from app.core.security import get_current_user
 
 router = APIRouter(prefix="/v1/history", tags=["History"])
 

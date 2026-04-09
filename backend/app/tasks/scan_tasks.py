@@ -1,6 +1,6 @@
 from celery import shared_task
-from backend.app.services.scan_orchestrator import run_synchronous_orchestrator
-from backend.app.core.redis_client import publish_event
+from app.services.scan_orchestrator import run_synchronous_orchestrator
+from app.core.redis_client import publish_event
 import traceback
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, retry_backoff=True, retry_jitter=True)

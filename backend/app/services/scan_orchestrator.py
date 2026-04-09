@@ -6,11 +6,11 @@ import time
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from backend.app.db.database import SessionLocal
-from backend.app.db import models
-from backend.app.services.scanner_zap import ZapService
-from backend.app.services import ai_engine
-from backend.app.core.redis_client import publish_event
+from app.db.database import SessionLocal
+from app.db import models
+from app.services.scanner_zap import ZapService
+from app.services import ai_engine
+from app.core.redis_client import publish_event
 
 def update_db_state(db: Session, scan_id: str, progress: int, current_step: str, status: str = "running"):
     scan = db.query(models.Scan).filter(models.Scan.id == scan_id).first()
