@@ -8,7 +8,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
-from app.db.database import engine
+from app.db.database import engine, run_migrations
 from app.db import models
 from app.core.rate_limiter import limiter
 
@@ -18,7 +18,9 @@ from app.api.routers import scans, auth, history, dashboard, billing, analytics
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-# Auto-migrate
+# Run schema migrations first (adds missing columns to existing tables)
+run_migrations()
+# Then create any entirely new tables
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title=settings.PROJECT_NAME)
