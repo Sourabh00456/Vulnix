@@ -3,14 +3,21 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk" });
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
 
 export const metadata: Metadata = {
-  title: "Forensic Intelligence | Cybersecurity Dashboard",
-  description: "Production-ready cybersecurity scanning SaaS MVP",
+  title: "Vulnix | Security Scanning Platform",
+  description: "Continuous threat monitoring and vulnerability scanning SaaS. Detect misconfigurations, exposed ports, and web vulnerabilities in real-time.",
+  keywords: "security scanning, vulnerability scanner, SSRF protection, penetration testing, SaaS",
+  openGraph: {
+    title: "Vulnix | Security Scanning Platform",
+    description: "Continuous threat monitoring and vulnerability scanning.",
+    type: "website",
+  }
 };
 
 export default function RootLayout({
@@ -32,8 +39,9 @@ export default function RootLayout({
             {children}
         </main>
         
+        <Toaster theme="dark" position="bottom-right" richColors />
         {/* FAB */}
-        <button className="fixed bottom-8 right-8 w-16 h-16 hero-gradient rounded-full shadow-[0_8px_30px_rgba(212,56,13,0.3)] flex items-center justify-center group active:scale-90 transition-all z-50">
+        <button className="fixed bottom-8 right-8 w-16 h-16 bg-primary rounded-full shadow-[0_8px_30px_rgba(124,106,247,0.4)] flex items-center justify-center group active:scale-90 transition-all z-50 pulse-glow">
             <span className="material-symbols-outlined text-white text-3xl group-hover:rotate-90 transition-transform">add</span>
         </button>
       </body>

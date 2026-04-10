@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import api from "@/lib/axios";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { SkeletonStats, SkeletonTable } from "@/components/Skeleton";
 
 export default function DashboardOverview() {
   const router = useRouter();
@@ -22,7 +24,10 @@ export default function DashboardOverview() {
         setRecent(recentRes.data);
       } catch (e: any) {
         if (e.response?.status === 401) {
+          toast.error("Session expired. Please log in again.");
           router.push("/login");
+        } else {
+          toast.error("Failed to load dashboard data.");
         }
       } finally {
         setLoading(false);
@@ -34,8 +39,19 @@ export default function DashboardOverview() {
 
   if (loading) {
     return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
+      <div className="max-w-7xl mx-auto space-y-12 p-6 animate-fade-in">
+        <div className="flex justify-between items-end">
+          <div className="space-y-2">
+            <div className="skeleton h-10 w-64" />
+            <div className="skeleton h-4 w-48" />
+          </div>
+          <div className="skeleton h-12 w-32 rounded-xl" />
+        </div>
+        <SkeletonStats />
+        <div className="space-y-4">
+          <div className="skeleton h-8 w-48" />
+          <SkeletonTable rows={5} />
+        </div>
       </div>
     );
   }

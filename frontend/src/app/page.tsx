@@ -2,44 +2,43 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import api from "@/lib/axios";
 
 export default function Home() {
   const [url, setUrl] = useState("");
+  const [scanType, setScanType] = useState<"quick" | "deep">("quick");
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
   const router = useRouter();
 
   const startScan = async () => {
     if (!url) return;
     setLoading(true);
-    setErrorMsg("");
     
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API_URL}/v1/scans`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target_url: url }),
+      const res = await api.post("/v1/scans", {
+        target_url: url,
+        scan_type: scanType,
+        schedule_type: "none"
       });
       
-      const data = await res.json();
-      
-      if (!res.ok) {
-        if (res.status === 429) {
-          throw new Error("Free Tier: Daily limit of 3 scans exceeded. Upgrade to Pro.");
-        } else if (res.status === 403) {
-          throw new Error("Target Verification Failed. Missing TXT Token.");
-        } else if (res.status === 401) {
-          throw new Error("Authentication required. Please login.");
-        }
-        throw new Error(data.detail || "Server failed to initiate scan.");
-      }
-
+      const data = res.data;
+      toast.success(`${scanType === "quick" ? "Quick" : "Deep"} scan initiated.`);
       if (data.id) {
         router.push(`/dashboard/scans/${data.id}`);
       }
     } catch (e: any) {
-      setErrorMsg(e.message);
+      const detail = e.response?.data?.detail;
+      if (e.response?.status === 429) {
+        toast.error("Free Tier limit reached (3 scans/day). Upgrade to Pro.");
+      } else if (e.response?.status === 401) {
+        toast.error("Authentication required.");
+        router.push("/login");
+      } else if (e.response?.status === 400) {
+        toast.error(detail || "Invalid target URL. Must start with http:// or https://");
+      } else {
+        toast.error(detail || "Scan initiation failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -84,12 +83,29 @@ export default function Home() {
         </button>
       </div>
       
-      {errorMsg && (
-        <div className="mt-6 mx-auto w-full max-w-2xl bg-error/10 border border-error/20 rounded-xl p-4 flex items-center gap-3 animate-fade-in">
-          <span className="material-symbols-outlined text-error">warning</span>
-          <p className="text-sm font-semibold text-error">{errorMsg}</p>
-        </div>
-      )}
+      {/* Scan Type Selector */}
+      <div className="flex justify-center gap-3 mt-4 relative z-10">
+        <button
+          onClick={() => setScanType("quick")}
+          className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
+            scanType === "quick"
+              ? "bg-primary text-on-primary shadow-lg shadow-primary/30"
+              : "bg-surface-container-high text-on-surface-variant hover:text-white"
+          }`}
+        >
+          ⚡ Quick Scan
+        </button>
+        <button
+          onClick={() => setScanType("deep")}
+          className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
+            scanType === "deep"
+              ? "bg-primary text-on-primary shadow-lg shadow-primary/30"
+              : "bg-surface-container-high text-on-surface-variant hover:text-white"
+          }`}
+        >
+          🔬 Deep Scan
+        </button>
+      </div>
       
       <div className="w-full flex justify-center mt-20 gap-8 opacity-40 grayscale pointer-events-none hidden md:flex">
          <img src="https://upload.wikimedia.org/wikipedia/commons/e/e4/Google_Cloud_logo.svg" className="h-8" alt="GCP" />
