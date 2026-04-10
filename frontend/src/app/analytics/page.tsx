@@ -39,6 +39,7 @@ export default function AnalyticsPage() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     api.get("/v1/analytics")
@@ -48,7 +49,8 @@ export default function AnalyticsPage() {
           toast.error("Session expired.");
           router.push("/login");
         } else {
-          toast.error("Failed to load analytics.");
+          setOffline(true);
+          toast.error("Analytics unavailable — backend unreachable.");
         }
       })
       .finally(() => setLoading(false));
@@ -61,6 +63,27 @@ export default function AnalyticsPage() {
         <div className="skeleton h-4 w-72" />
         <SkeletonStats />
         <SkeletonTable rows={6} />
+      </div>
+    );
+  }
+
+  if (offline) {
+    return (
+      <div className="max-w-7xl mx-auto p-6 space-y-8 animate-fade-in">
+        <h1 className="text-4xl font-black tracking-tight">Analytics Engine.</h1>
+        <div className="bg-surface-container-high rounded-2xl p-12 flex flex-col items-center gap-4 text-center border border-yellow-500/20">
+          <span className="material-symbols-outlined text-yellow-400 text-5xl">cloud_off</span>
+          <h3 className="text-xl font-bold">Analytics Unavailable</h3>
+          <p className="text-on-surface-variant text-sm max-w-md">
+            The API server is unreachable. Analytics will load automatically once the backend is restored.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-primary text-on-primary px-6 py-3 rounded-xl font-bold hover:bg-primary-container transition-colors mt-2"
+          >
+            Retry Connection
+          </button>
+        </div>
       </div>
     );
   }

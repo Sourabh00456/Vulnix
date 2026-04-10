@@ -12,6 +12,7 @@ export default function DashboardOverview() {
   const [stats, setStats] = useState<any>(null);
   const [recent, setRecent] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -27,7 +28,8 @@ export default function DashboardOverview() {
           toast.error("Session expired. Please log in again.");
           router.push("/login");
         } else {
-          toast.error("Failed to load dashboard data.");
+          setOffline(true);
+          toast.error("Backend unavailable — showing cached state.");
         }
       } finally {
         setLoading(false);
@@ -56,13 +58,40 @@ export default function DashboardOverview() {
     );
   }
 
-  // Format Recharts data
-  const pieData = stats ? [
-    { name: "CRITICAL", value: stats.severities.CRITICAL || 0, color: "#FF3366" },
-    { name: "HIGH", value: stats.severities.HIGH || 0, color: "#FF6633" },
-    { name: "MEDIUM", value: stats.severities.MEDIUM || 0, color: "#FFCC00" },
-    { name: "LOW", value: stats.severities.LOW || 0, color: "#33CCFF" },
+  // Format Recharts data safely
+  const pieData = stats?.severities ? [
+    { name: "CRITICAL", value: stats.severities.CRITICAL ?? 0, color: "#FF3366" },
+    { name: "HIGH",     value: stats.severities.HIGH     ?? 0, color: "#FF6633" },
+    { name: "MEDIUM",   value: stats.severities.MEDIUM   ?? 0, color: "#FFCC00" },
+    { name: "LOW",      value: stats.severities.LOW      ?? 0, color: "#33CCFF" },
   ].filter(d => d.value > 0) : [];
+
+  // Offline fallback banner
+  if (offline) {
+    return (
+      <div className="max-w-7xl mx-auto p-6 animate-fade-in space-y-8">
+        <div className="flex justify-between items-end">
+          <div>
+            <h2 className="text-4xl font-black tracking-tight">Command Center.</h2>
+            <p className="text-on-surface-variant text-sm mt-2">Aggregate view of organization threat analytics.</p>
+          </div>
+        </div>
+        <div className="bg-surface-container-high rounded-2xl p-12 flex flex-col items-center gap-4 text-center border border-yellow-500/20">
+          <span className="material-symbols-outlined text-yellow-400 text-5xl">cloud_off</span>
+          <h3 className="text-xl font-bold">Backend Unavailable</h3>
+          <p className="text-on-surface-variant text-sm max-w-md">
+            The API server is unreachable right now. Your scan history and stats will load automatically when the connection is restored.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-primary text-on-primary px-6 py-3 rounded-xl font-bold hover:bg-primary-container transition-colors mt-2"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-12 animate-fade-in p-6">
