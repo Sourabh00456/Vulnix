@@ -10,14 +10,27 @@ const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
 
 export const metadata: Metadata = {
-  title: "Vulnix | Security Scanning Platform",
-  description: "Continuous threat monitoring and vulnerability scanning SaaS. Detect misconfigurations, exposed ports, and web vulnerabilities in real-time.",
-  keywords: "security scanning, vulnerability scanner, SSRF protection, penetration testing, SaaS",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://vulnix.vercel.app"),
+  title: "Vulnix – AI Vulnerability Scanner",
+  description: "Find vulnerabilities before attackers do. Vulnix combines Nmap, OWASP ZAP, and Gemini AI to continuously monitor your attack surface with actionable fixes.",
+  keywords: "vulnerability scanner, AI security, Nmap, OWASP ZAP, penetration testing, SSRF protection, SaaS security",
+  authors: [{ name: "Vulnix" }],
   openGraph: {
-    title: "Vulnix | Security Scanning Platform",
-    description: "Continuous threat monitoring and vulnerability scanning.",
+    title: "Vulnix – AI Vulnerability Scanner",
+    description: "Find vulnerabilities before attackers do. Continuous attack surface monitoring powered by AI.",
     type: "website",
-  }
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: "Vulnix Logo" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "Vulnix – AI Vulnerability Scanner",
+    description: "Continuous attack surface monitoring powered by Nmap, ZAP, and Gemini AI.",
+  },
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -26,24 +39,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark scroll-smooth">
       <head>
-        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" precedence="default"/>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          rel="stylesheet"
+          precedence="default"
+        />
       </head>
       <body
-        className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-background text-on-surface selection:bg-primary-container selection:text-white`}
+        className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-background text-on-surface selection:bg-primary/30 selection:text-white`}
       >
         <Header />
         <Sidebar />
-        <main className="lg:ml-64 pt-24 px-6 pb-12">
-            {children}
+        <main className="lg:ml-64 pt-16 min-h-screen">
+          {children}
         </main>
-        
+
         <Toaster theme="dark" position="bottom-right" richColors />
-        {/* FAB */}
-        <button className="fixed bottom-8 right-8 w-16 h-16 bg-primary rounded-full shadow-[0_8px_30px_rgba(124,106,247,0.4)] flex items-center justify-center group active:scale-90 transition-all z-50 pulse-glow">
-            <span className="material-symbols-outlined text-white text-3xl group-hover:rotate-90 transition-transform">add</span>
-        </button>
       </body>
     </html>
   );

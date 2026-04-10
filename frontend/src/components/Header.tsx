@@ -1,29 +1,69 @@
+"use client";
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+
+const isAppRoute = (p: string) =>
+  p.startsWith("/dashboard") || p.startsWith("/analytics");
+
 export default function Header() {
+  const pathname = usePathname();
+  const appMode = isAppRoute(pathname);
+
   return (
-    <header className="fixed top-0 w-full z-50 bg-neutral-950/80 backdrop-blur-xl shadow-[0_4px_30px_rgba(212,56,13,0.06)] flex justify-between items-center px-6 py-3">
-      <div className="flex items-center gap-8">
-        <h1 className="text-xl font-bold tracking-tighter text-white font-['Inter']">Forensic Intelligence</h1>
-        <div className="hidden md:flex items-center space-x-6">
-          <nav className="flex items-center gap-6">
-            <a className="text-orange-500 font-bold transition-colors" href="#">Overview</a>
-            <a className="text-neutral-400 hover:text-white hover:bg-neutral-800/50 transition-colors px-3 py-1 rounded-lg" href="#">Assets</a>
-            <a className="text-neutral-400 hover:text-white hover:bg-neutral-800/50 transition-colors px-3 py-1 rounded-lg" href="#">Investigations</a>
-          </nav>
+    <header className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-xl border-b border-white/5 flex justify-between items-center px-6 py-3">
+      {/* Logo */}
+      <Link href="/" className="flex items-center gap-3 group">
+        <div className="w-8 h-8 rounded-lg overflow-hidden bg-primary/10 border border-primary/20 flex items-center justify-center">
+          <span className="text-primary font-black text-sm">VX</span>
         </div>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="relative hidden sm:block">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">search</span>
-          <input className="bg-surface-container-lowest border-none text-xs label-font rounded-lg pl-9 pr-4 py-2 w-64 focus:ring-1 focus:ring-primary/30" placeholder="Global search..." type="text"/>
-        </div>
-        <button className="text-neutral-400 hover:text-white transition-colors relative">
-          <span className="material-symbols-outlined">notifications</span>
-          <span className="absolute top-0 right-0 w-2 h-2 bg-primary-container rounded-full border-2 border-neutral-950"></span>
-        </button>
-        <div className="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant/20 overflow-hidden">
-          <img alt="User profile" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWwvgiO14o_07C_sAm7yeHzIEpMrU4lYSN8T0cLTqmmX5B18a68VMZ4vCPycwMyqU9EeU9KOFo6vtfMnwYt9zWFTSR--pDGPBLUxuyzaQuAJWNFaOK4SLBcrhIDjRY9eaibnu5oKWpFRGx2kWIwu8Ddkx-7yekiUbNH3TINRG6Svwf-Y1nGL6gP4Yd_yGv0PBoYLIR6uTYg1AGM8F9lOTHKM2lAF1_Wnxx4fr-MzFqVfwIwk-2JsExvMp-gGm3SO4AcIzvDBMF-Zg7"/>
-        </div>
+        <span className="font-black text-base tracking-tight text-white group-hover:text-primary transition-colors">Vulnix</span>
+      </Link>
+
+      {/* Public nav (landing page only) */}
+      {!appMode && (
+        <nav className="hidden md:flex items-center gap-1">
+          {[
+            { href: "/#features",  label: "Features" },
+            { href: "/#pricing",   label: "Pricing" },
+            { href: "/analytics",  label: "Analytics" },
+          ].map(item => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="px-3 py-1.5 rounded-lg text-sm text-on-surface-variant hover:text-white hover:bg-surface-container-high transition-all"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-3">
+        {appMode ? (
+          <>
+            <Link href="/dashboard" className="text-on-surface-variant hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-xl">dashboard</span>
+            </Link>
+            <Link href="/analytics" className="text-on-surface-variant hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-xl">bar_chart</span>
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link href="/login" className="text-sm text-on-surface-variant hover:text-white transition-colors px-3 py-1.5">
+              Sign in
+            </Link>
+            <Link
+              href="/register"
+              className="bg-primary text-on-primary text-sm font-bold px-4 py-2 rounded-xl hover:bg-primary-container transition-all shadow-md shadow-primary/20"
+            >
+              Get Started Free
+            </Link>
+          </>
+        )}
       </div>
     </header>
-  )
+  );
 }
