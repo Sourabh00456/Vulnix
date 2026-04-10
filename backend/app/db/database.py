@@ -2,7 +2,11 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
-engine = create_engine(settings.DATABASE_URL)
+engine = create_engine(
+    settings.DATABASE_URL,
+    pool_pre_ping=True,   # Test connections before use, avoids stale connection errors
+    pool_recycle=300,     # Recycle connections every 5 min to prevent SSL timeout noise
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def run_migrations():
