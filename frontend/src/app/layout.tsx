@@ -10,7 +10,7 @@ const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://vulnix.vercel.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://vulnix-six.vercel.app"),
   title: "Vulnix – AI Vulnerability Scanner",
   description: "Find vulnerabilities before attackers do. Vulnix combines Nmap, OWASP ZAP, and Gemini AI to continuously monitor your attack surface with actionable fixes.",
   keywords: "vulnerability scanner, AI security, Nmap, OWASP ZAP, penetration testing, SSRF protection, SaaS security",

@@ -13,6 +13,6 @@ class Settings(BaseModel):
     
     STRIPE_API_KEY: str = os.getenv("STRIPE_API_KEY", "")
     STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://vulnix-six.vercel.app")
 
 settings = Settings()

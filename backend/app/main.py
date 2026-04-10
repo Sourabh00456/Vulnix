@@ -29,7 +29,7 @@ if ENV != "production":
     allow_origins = ["*"]
 else:
     allow_origins = [
-        "https://vulnix-3fajnd8ri-sourabh00456s-projects.vercel.app"
+        "https://vulnix-six.vercel.app"
     ]
 
 app.add_middleware(
