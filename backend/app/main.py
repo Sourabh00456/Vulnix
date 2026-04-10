@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,10 +46,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global Exception on {request.url.path}: {exc}")
+    tb = traceback.format_exc()
+    logger.error(f"Global Exception on {request.url.path}: {exc}\n{tb}")
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error"},
+        content={"detail": str(exc)},  # Return real error in dev; safe enough for debugging
     )
 
 app.include_router(scans.router)

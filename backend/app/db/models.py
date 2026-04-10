@@ -10,7 +10,7 @@ class Organization(Base):
     __tablename__ = "organizations"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    owner_id = Column(Integer, ForeignKey("users.id"))
+    owner_id = Column(Integer, nullable=True)  # No FK — avoids circular dependency with users
     created_at = Column(DateTime, default=datetime.utcnow)
     
     users = relationship("User", foreign_keys="[User.org_id]", back_populates="organization")
