@@ -125,19 +125,20 @@ export default function LandingPage() {
     setLoading(true);
     try {
       const res = await api.post("/v1/scans", { target_url: url, scan_type: scanType, schedule_type: "none" });
+      const scanId = res.data?.id;
+      if (!scanId) { toast.error("Scan created but no ID returned."); return; }
       toast.success(`${scanType === "quick" ? "⚡ Quick" : "🔬 Deep"} scan initiated!`);
-      router.push(`/dashboard/scans/${res.data.id}`);
+      router.push(`/dashboard/scans/${scanId}`);
     } catch (e: any) {
       if (e.response?.status === 401) {
         toast.error("Please sign in to run a scan.");
         router.push("/login");
       } else if (e.response?.status === 429) {
-        toast.error("Free tier limit reached. Upgrade to Pro.");
-        router.push("/pricing");
+        toast.error("Free tier limit reached (3 scans/day). Upgrade to Pro.");
       } else if (e.response?.status === 400) {
-        toast.error(e.response?.data?.detail || "Invalid URL.");
+        toast.error(e.response?.data?.detail || "Invalid URL. Must start with https://");
       } else {
-        toast.error("Scan failed. Try again.");
+        toast.error(e.response?.data?.detail || "Scan failed. Please try again.");
       }
     } finally {
       setLoading(false);
