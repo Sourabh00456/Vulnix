@@ -10,8 +10,11 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python compiled artifacts (NOT frontend src/lib/)
 lib64/
+# Exclude Python lib dir but NOT frontend src lib dirs
+/lib/
+/backend/lib/
 parts/
 sdist/
 var/
