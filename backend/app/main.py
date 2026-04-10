@@ -31,12 +31,15 @@ if ENV != "production":
 else:
     allow_origins = [
         "https://vulnix-six.vercel.app",
-        "https://vulnix.up.railway.app"
+        "https://vulnix.up.railway.app",
+        "http://localhost:3000",
+        "http://localhost:8000",
     ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
+    allow_origin_regex=r"https://vulnix.*\.vercel\.app",  # Covers all Vercel preview deployments
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
