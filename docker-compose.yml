@@ -27,7 +27,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
     environment:
@@ -46,7 +46,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: ["celery", "-A", "backend.app.tasks.worker.celery", "worker", "--loglevel=info"]
+    command: ["celery", "-A", "app.tasks.worker.celery", "worker", "--beat", "--loglevel=info"]
     environment:
       DATABASE_URL: "postgresql://postgres:password@db/forensic_intelligence"
       REDIS_URL: "redis://redis:6379/0"

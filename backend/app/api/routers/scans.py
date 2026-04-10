@@ -44,6 +44,11 @@ def create_scan(request: Request, req: ScanRequest, db: Session = Depends(get_db
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required for SaaS features.")
         
+    # Input Sanitization and Schema validation
+    parsed_target = urllib.parse.urlparse(req.target_url)
+    if not parsed_target.scheme in ["http", "https"] or not parsed_target.netloc:
+        raise HTTPException(status_code=400, detail="Invalid target URL schema. Must include http:// or https://")
+
     # SaaS Limit Check
     if current_user.plan_type == "free":
         today_scans = db.query(models.Scan).filter(

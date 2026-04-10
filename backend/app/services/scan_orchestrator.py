@@ -3,6 +3,7 @@ import urllib.parse
 import subprocess
 import json
 import time
+import ipaddress
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -54,9 +55,18 @@ def run_recon(db: Session, scan_id: str, target: str):
 
     try:
         ip = socket.gethostbyname(domain)
+        
+        # SSRF Protection Core Check
+        ip_obj = ipaddress.ip_address(ip)
+        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_multicast or ip_obj.is_reserved:
+            raise ValueError(f"Target resolves to restricted internal IP space: {ip}")
+
         log_and_publish(db, scan_id, f"DNS Resolved: {domain} -> {ip}", 20, "Recon")
         update_db_state(db, scan_id, 20, "Recon")
         return domain, ip
+    except ValueError as ve:
+        log_and_publish(db, scan_id, f"SECURITY BLOCK (SSRF): {ve}", 0, "Recon", is_error=True)
+        raise Exception(f"SSRF Violation: {ve}")
     except Exception as e:
         log_and_publish(db, scan_id, f"DNS Lookup Failed: {e}", 20, "Recon", is_error=True)
         raise Exception("Recon failed tightly. Halting pipeline.")
