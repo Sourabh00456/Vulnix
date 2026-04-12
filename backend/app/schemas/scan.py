@@ -1,10 +1,12 @@
 from pydantic import BaseModel
 from typing import List, Optional, Any
 
+
 class ScanRequest(BaseModel):
     target_url: str
     scan_type: Optional[str] = "quick"
     schedule_type: Optional[str] = "none"
+
 
 class ScanResponse(BaseModel):
     id: str
@@ -13,15 +15,21 @@ class ScanResponse(BaseModel):
     progress: int
     current_step: str
 
+    model_config = {"from_attributes": True}  # Pydantic v2 ORM mode
+
+
 class VulnerabilitySchema(BaseModel):
-    type: str
-    severity: str
-    source: str
-    endpoint: str
-    description: Optional[str]
-    fix: str
-    confidence: float
-    raw_data: Any
+    type: Optional[str] = ""
+    severity: Optional[str] = "LOW"
+    source: Optional[str] = ""
+    endpoint: Optional[str] = ""
+    description: Optional[str] = ""
+    fix: Optional[str] = ""
+    confidence: Optional[float] = 1.0
+    raw_data: Optional[Any] = None
+
+    model_config = {"from_attributes": True}
+
 
 class ScanReport(BaseModel):
     id: str
@@ -29,6 +37,8 @@ class ScanReport(BaseModel):
     status: str
     progress: int
     current_step: str
-    threat_score: Optional[float]
-    logs: List[dict]
-    vulnerabilities: List[VulnerabilitySchema]
+    threat_score: Optional[float] = None
+    logs: List[dict] = []
+    vulnerabilities: List[VulnerabilitySchema] = []
+
+    model_config = {"from_attributes": True}
