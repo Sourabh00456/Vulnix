@@ -101,7 +101,7 @@ export default function DashboardOverview() {
           <p className="text-on-surface-variant text-sm mt-2">Aggregate view of organization threat analytics.</p>
         </div>
         <button 
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/scan")}
           className="bg-primary text-on-primary px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-primary-container transition-colors"
         >
           <span className="material-symbols-outlined text-sm">rocket_launch</span>
