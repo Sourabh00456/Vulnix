@@ -13,7 +13,7 @@ import VulnerabilityCard from "@/components/VulnerabilityCard";
 function DashboardContent() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const id = params?.id as string;
 
   const [scan, setScan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -24,153 +24,123 @@ function DashboardContent() {
   const [currentStep, setCurrentStep] = useState("Initializing");
   const [status, setStatus] = useState("queued");
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Safe fetch using axios (includes auth token + base URL fix) ──
+  // ------------------------------------------------------------------
+  // Safe fetch — all error paths set state gracefully, never throw
+  // ------------------------------------------------------------------
   const fetchScanData = async (): Promise<boolean> => {
+    if (!id) return false;
     try {
       const res = await api.get(`/v1/scans/${id}`);
-      const data = res.data;
+      const data = res?.data ?? {};
+
       setScan(data);
       setStatus(data?.status ?? "queued");
-      setProgress(data?.progress ?? 0);
-      setCurrentStep(data?.current_step ?? "queued");
-      if (Array.isArray(data?.logs)) setLiveLogs(data.logs);
+      setProgress(typeof data?.progress === "number" ? data.progress : 0);
+      setCurrentStep(data?.current_step ?? "Processing");
+
+      if (Array.isArray(data?.logs) && data.logs.length > 0) {
+        setLiveLogs(data.logs);
+      }
+
       setLoading(false);
-      return data?.status === "completed" || data?.status === "failed";
+      const done = data?.status === "completed" || data?.status === "failed";
+      return done;
     } catch (err: any) {
       setLoading(false);
-      if (err.response?.status === 401) {
-        toast.error("Session expired.");
+      const status = err?.response?.status;
+      if (status === 401) {
+        toast.error("Session expired. Please log in again.");
         router.push("/login");
-      } else if (err.response?.status === 404) {
+      } else if (status === 404) {
         setError("Scan not found. It may have been deleted.");
       } else {
-        setError("Unable to load scan data. Backend may be unavailable.");
+        setError("Unable to load scan. Backend may be unavailable.");
       }
       return false;
     }
   };
 
-  // ── WebSocket with safe fallback to polling ──
+  // ------------------------------------------------------------------
+  // On mount: initial fetch, then poll every 2.5 s until terminal state
+  // ------------------------------------------------------------------
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setError("Invalid scan ID.");
+      setLoading(false);
+      return;
+    }
 
-    let usePoll = false;
+    let cancelled = false;
 
-    const startPolling = () => {
-      if (pollRef.current) return;
-      pollRef.current = setInterval(async () => {
-        const done = await fetchScanData();
-        if (done && pollRef.current) {
+    const poll = async () => {
+      const done = await fetchScanData();
+      if (done || cancelled) {
+        if (pollRef.current) {
           clearInterval(pollRef.current);
           pollRef.current = null;
         }
-      }, 2500);
-    };
-
-    const connectWebSocket = () => {
-      if (typeof window === "undefined") return;
-
-      try {
-        // Derive ws URL safely from NEXT_PUBLIC_WS_URL or API URL
-        const rawWs =
-          process.env.NEXT_PUBLIC_WS_URL ||
-          (process.env.NEXT_PUBLIC_API_URL || "ws://localhost:8000")
-            .replace(/^https:\/\//, "wss://")
-            .replace(/^http:\/\//, "ws://");
-
-        // Strip path suffix from env var
-        let wsOrigin = rawWs;
-        try {
-          const u = new URL(rawWs);
-          wsOrigin = `${u.protocol}//${u.host}`;
-        } catch {}
-
-        const ws = new WebSocket(`${wsOrigin}/v1/scans/${id}/ws`);
-        wsRef.current = ws;
-
-        const timeout = setTimeout(() => {
-          if (ws.readyState !== WebSocket.OPEN) {
-            ws.close();
-            toast("Live feed unavailable — switching to polling.", { icon: "📡" });
-            startPolling();
+        return;
+      }
+      // Start interval polling only if not already running
+      if (!pollRef.current) {
+        pollRef.current = setInterval(async () => {
+          if (cancelled) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            return;
           }
-        }, 5000);
-
-        ws.onopen = () => clearTimeout(timeout);
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.progress !== undefined) setProgress(data.progress);
-            if (data.step) setCurrentStep(data.step);
-
-            if (data.type === "log" || data.type === "error") {
-              const timeStr = new Date().toLocaleTimeString("en-US", { hour12: false });
-              setLiveLogs((prev) => [...prev, { time: timeStr, msg: data.log ?? "" }]);
-              if (data.type === "error" && data.log === "CRITICAL PIPELINE ERROR") {
-                setStatus("failed");
-                ws.close();
-              }
-            } else if (data.type === "completed") {
-              setStatus("completed");
-              setProgress(100);
-              setCurrentStep("Completed");
-              ws.close();
-              fetchScanData(); // refresh final structured data
-            }
-          } catch {
-            // Malformed message — ignore
+          const isDone = await fetchScanData();
+          if (isDone && pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
           }
-        };
-
-        ws.onerror = () => {
-          clearTimeout(timeout);
-          startPolling();
-        };
-
-        ws.onclose = () => {
-          clearTimeout(timeout);
-          if (status !== "completed" && status !== "failed" && !usePoll) {
-            startPolling();
-          }
-        };
-      } catch {
-        startPolling();
+        }, 2500);
       }
     };
 
-    fetchScanData().then((done) => {
-      if (!done) connectWebSocket();
-    });
+    poll();
 
     return () => {
-      wsRef.current?.close();
-      if (pollRef.current) clearInterval(pollRef.current);
+      cancelled = true;
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // ── Error state ──
+  // ── Error state ────────────────────────────────────────────────────
   if (error) {
     return (
       <div className="max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[50vh] gap-6 p-6">
         <span className="material-symbols-outlined text-error text-5xl">error</span>
         <h2 className="text-xl font-bold">Scan Unavailable</h2>
         <p className="text-on-surface-variant text-sm text-center max-w-md">{error}</p>
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="bg-primary text-on-primary px-6 py-3 rounded-xl font-bold hover:bg-primary-container transition-colors"
-        >
-          Back to Dashboard
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="bg-primary text-on-primary px-6 py-3 rounded-xl font-bold hover:bg-primary-container transition-colors"
+          >
+            Back to Dashboard
+          </button>
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              fetchScanData();
+            }}
+            className="border border-primary/40 text-primary px-6 py-3 rounded-xl font-bold hover:bg-primary/10 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
-  // ── Loading state ──
+  // ── Loading state ──────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[50vh]">
@@ -182,8 +152,8 @@ function DashboardContent() {
     );
   }
 
-  const threatScore = scan?.threat_score ?? 0;
-  const vulnerabilities: any[] = scan?.vulnerabilities ?? [];
+  const threatScore = typeof scan?.threat_score === "number" ? scan.threat_score : 0;
+  const vulnerabilities: any[] = Array.isArray(scan?.vulnerabilities) ? scan.vulnerabilities : [];
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-fade-in p-6">
@@ -203,7 +173,7 @@ function DashboardContent() {
               <p className="text-on-surface-variant text-sm">
                 {status === "running" || status === "queued"
                   ? "Scan in progress — results will appear here"
-                  : `${vulnerabilities.filter((v) => v.severity?.toUpperCase() === "CRITICAL").length} Critical · ${vulnerabilities.length} Total`}
+                  : `${vulnerabilities.filter((v) => (v?.severity ?? "").toUpperCase() === "CRITICAL").length} Critical · ${vulnerabilities.length} Total`}
               </p>
             </div>
           </div>
@@ -217,7 +187,10 @@ function DashboardContent() {
             </div>
           ) : vulnerabilities.length === 0 ? (
             <div className="bg-surface-container-high rounded-2xl p-12 flex flex-col items-center text-center gap-4">
-              <span className="material-symbols-outlined text-primary text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+              <span
+                className="material-symbols-outlined text-primary text-4xl"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
                 verified_user
               </span>
               <p className="font-bold">No vulnerabilities detected</p>

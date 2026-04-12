@@ -163,25 +163,25 @@ export default function DashboardOverview() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {recent.map(scan => (
+              {recent.map((scan, idx) => (
                 <tr 
-                  key={scan.id} 
-                  onClick={() => router.push(`/dashboard/scans/${scan.id}`)}
+                  key={scan?.id ?? idx} 
+                  onClick={() => scan?.id && router.push(`/dashboard/scans/${scan.id}`)}
                   className="hover:bg-surface-container-highest/30 cursor-pointer transition-colors"
                 >
-                  <td className="p-4 font-mono text-sm">{scan.target_url}</td>
+                  <td className="p-4 font-mono text-sm">{scan?.target_url ?? '—'}</td>
                   <td className="p-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      scan.status === 'completed' ? 'bg-primary/20 text-primary' : 
-                      scan.status === 'failed' ? 'bg-error/20 text-error' : 
+                      scan?.status === 'completed' ? 'bg-primary/20 text-primary' : 
+                      scan?.status === 'failed' ? 'bg-error/20 text-error' : 
                       'bg-secondary/20 text-secondary'
                     }`}>
-                      {scan.status.toUpperCase()}
+                      {(scan?.status ?? 'unknown').toUpperCase()}
                     </span>
                   </td>
-                  <td className="p-4 font-bold">{scan.threat_score || '--'}</td>
+                  <td className="p-4 font-bold">{scan?.threat_score ?? '--'}</td>
                   <td className="p-4 text-right text-xs text-on-surface-variant">
-                    {scan.created_at ? new Date(scan.created_at).toLocaleString() : 'N/A'}
+                    {scan?.created_at ? new Date(scan.created_at).toLocaleString() : 'N/A'}
                   </td>
                 </tr>
               ))}
