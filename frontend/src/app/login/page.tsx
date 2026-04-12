@@ -17,13 +17,13 @@ export default function LoginPage() {
     setErrorMsg("");
 
     try {
-      const formData = new FormData();
-      formData.append("username", email);
-      formData.append("password", password);
+      // OAuth2PasswordRequestForm requires application/x-www-form-urlencoded.
+      // URLSearchParams is serialized correctly by axios automatically.
+      const params = new URLSearchParams();
+      params.append("username", email);
+      params.append("password", password);
 
-      const res = await api.post("/v1/auth/login", formData, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" }
-      });
+      const res = await api.post("/v1/auth/login", params);
 
       if (res.data.access_token) {
         localStorage.setItem("breachme_token", res.data.access_token);
