@@ -28,31 +28,25 @@ app.state.limiter = limiter
 
 ENV = os.getenv("ENV", "production")
 
+# Single source-of-truth for CORS.
+# allow_origins=["*"] cannot be combined with allow_credentials=True,
+# so we build the list explicitly from the env var + known Vercel domains.
+_raw_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "https://vulnix-six.vercel.app"
+)
+ALLOWED_ORIGINS: list[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,  # Must be False when allow_origins=["*"]
-    allow_methods=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://vulnix.*\.vercel\.app",  # covers all preview URLs
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=86400,
 )
-
-# Belt-and-suspenders: also inject CORS headers at the raw response level
-# so preflight OPTIONS requests are always handled correctly
-@app.middleware("http")
-async def add_cors_headers(request: Request, call_next):
-    if request.method == "OPTIONS":
-        from fastapi.responses import Response as FastAPIResponse
-        response = FastAPIResponse()
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Max-Age"] = "86400"
-        return response
-    response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    return response
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
