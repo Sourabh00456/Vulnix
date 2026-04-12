@@ -14,9 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/auth", tags=["Auth"])
 
 
-# ── GET /register — browser-friendly info endpoint ───────────────────────────
-# Prevents "Method Not Allowed" when someone navigates to /v1/auth/register
-# directly in a browser or hit it via GET (e.g. a misconfigured redirect).
+# ── GET /register — browser info (prevents 405 when visited directly) ─────────
 @router.get("/register")
 def register_info():
     return {
@@ -31,46 +29,74 @@ def register_info():
 @router.post("/register", response_model=Token)
 @limiter.limit("5/hour")
 def register(request: Request, user: UserCreate, db: Session = Depends(get_db)):
-    logger.info(f"Register attempt — email: {user.email}")
+    logger.info(f"[REGISTER] Attempt — email: {user.email}")
 
-    # Email uniqueness check
-    existing = db.query(models.User).filter(models.User.email == user.email).first()
+    # ── Step 1: Email uniqueness ──────────────────────────────────────────────
+    try:
+        existing = db.query(models.User).filter(models.User.email == user.email).first()
+    except Exception as e:
+        logger.error(f"[REGISTER] DB query failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Database error during lookup")
+
     if existing:
-        logger.warning(f"Register failed — email already registered: {user.email}")
+        logger.warning(f"[REGISTER] Email already registered: {user.email}")
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    # ── Step 2: Hash password ─────────────────────────────────────────────────
+    try:
+        hashed_pass = security.get_password_hash(user.password)
+        logger.info(f"[REGISTER] Password hashed OK")
+    except Exception as e:
+        logger.error(f"[REGISTER] Hashing failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Password processing error")
+
+    # ── Step 3: Create user + org (single transaction) ────────────────────────
     try:
         # Create user
-        hashed_pass = security.get_password_hash(user.password)
         new_user = models.User(email=user.email, hashed_password=hashed_pass)
         db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        db.flush()  # assigns new_user.id without committing — stays in transaction
+        logger.info(f"[REGISTER] User flushed with id={new_user.id}")
 
-        # Create default org (single-tenant MVP)
+        # Create default org
         org_name = f"{user.email.split('@')[0]}'s Organization"
         default_org = models.Organization(name=org_name, owner_id=new_user.id)
         db.add(default_org)
-        db.commit()
-        db.refresh(default_org)
+        db.flush()  # assigns default_org.id
+        logger.info(f"[REGISTER] Org flushed with id={default_org.id}")
 
         # Link user → org
         new_user.org_id = default_org.id
-        db.commit()
 
-        access_token = security.create_access_token(data={"sub": new_user.email})
-        logger.info(f"Register success — user created: {user.email}")
-        return {"access_token": access_token, "token_type": "bearer"}
+        # Single commit for the whole operation (atomic)
+        db.commit()
+        logger.info(f"[REGISTER] Transaction committed OK")
+
+        # Capture values BEFORE refresh expires the attributes
+        user_email = new_user.email
+
+        db.refresh(new_user)
+        logger.info(f"[REGISTER] User refreshed — email: {user_email}")
 
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        logger.error(f"Register error for {user.email}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Registration failed. Please try again.")
+        logger.error(f"[REGISTER] DB transaction failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+
+    # ── Step 4: Issue JWT ─────────────────────────────────────────────────────
+    try:
+        access_token = security.create_access_token(data={"sub": user_email})
+        logger.info(f"[REGISTER] JWT issued for {user_email}")
+    except Exception as e:
+        logger.error(f"[REGISTER] JWT creation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Token generation error")
+
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
-# ── GET /login — browser-friendly info endpoint ───────────────────────────────
+# ── GET /login — browser info ─────────────────────────────────────────────────
 @router.get("/login")
 def login_info():
     return {
@@ -90,13 +116,24 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    logger.info(f"Login attempt — email: {form_data.username}")
+    logger.info(f"[LOGIN] Attempt — email: {form_data.username}")
 
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    try:
+        user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    except Exception as e:
+        logger.error(f"[LOGIN] DB query failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Database error")
+
     if not user or not security.verify_password(form_data.password, user.hashed_password):
-        logger.warning(f"Login failed — bad credentials: {form_data.username}")
+        logger.warning(f"[LOGIN] Bad credentials for: {form_data.username}")
         raise HTTPException(status_code=400, detail="Incorrect email or password")
 
-    access_token = security.create_access_token(data={"sub": user.email})
-    logger.info(f"Login success — user authenticated: {form_data.username}")
-    return {"access_token": access_token, "token_type": "bearer"}
+    try:
+        # Capture email before session expiry
+        user_email = user.email
+        access_token = security.create_access_token(data={"sub": user_email})
+        logger.info(f"[LOGIN] Success — {user_email}")
+        return {"access_token": access_token, "token_type": "bearer"}
+    except Exception as e:
+        logger.error(f"[LOGIN] JWT creation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Token generation error")

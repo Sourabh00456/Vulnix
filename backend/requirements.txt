@@ -16,3 +16,4 @@ slowapi==0.1.9
 python-dotenv
 httpx
 stripe
+email-validator==2.2.0
