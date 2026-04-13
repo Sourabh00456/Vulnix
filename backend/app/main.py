@@ -22,6 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ── DB bootstrap ─────────────────────────────────────────────────────────────
+logger.info("[BOOT] Initializing database connection...")
 run_migrations()
 models.Base.metadata.create_all(bind=engine)
 

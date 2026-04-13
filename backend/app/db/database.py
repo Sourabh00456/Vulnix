@@ -1,9 +1,16 @@
+import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
+# Pre-flight check for database configuration
+DATABASE_URL = settings.DATABASE_URL
+
+if not DATABASE_URL:
+    raise RuntimeError("[CRITICAL] DATABASE_URL is not set. Database initialization failed.")
+
 engine = create_engine(
-    settings.DATABASE_URL,
+    DATABASE_URL,
     pool_pre_ping=True,   # Test connections before use, avoids stale connection errors
     pool_recycle=300,     # Recycle connections every 5 min to prevent SSL timeout noise
 )
