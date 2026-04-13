@@ -1,12 +1,10 @@
-import os
 from celery import Celery
-
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+from app.core.config import settings
 
 celery = Celery(
     "breachme_tasks",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
     include=["app.tasks.scan_tasks"]
 )
 

@@ -14,10 +14,23 @@ from app.db.database import get_db
 from app.db import models
 from app.core.security import get_current_user_optional, get_current_user
 from app.core.rate_limiter import limiter
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/scans", tags=["Scans"])
+
+@router.get("/diagnostics/worker-health")
+def check_worker_health():
+    """Definitive health check by executing a ping-pong task with the worker."""
+    from app.tasks.scan_tasks import health_ping
+    try:
+        task = health_ping.delay()
+        result = task.get(timeout=5)
+        return {"status": "healthy", "worker_response": result}
+    except Exception as e:
+        logger.error(f"[DIAGNOSTICS] Worker health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Scanning engine temporarily unavailable")
 
 
 def verify_target(target_url: str, token: Optional[str]) -> bool:
@@ -97,24 +110,45 @@ def create_scan(
         raise HTTPException(status_code=500, detail="Failed to create scan record")
 
     # ── Dispatch mechanism ────────────────────────────────────────────────────
-    dispatched = False
+    # Role-based dry run logic
+    is_dry_run = req.is_dry_run
     
-    # Try Celery first in production
-    if settings.ENVIRONMENT != "development":
-        try:
-            from app.tasks.scan_tasks import execute_scan
-            execute_scan.delay(db_scan.id, req.target_url)
-            logger.info(f"[SCAN] Dispatched to Celery: scan_id={db_scan.id}")
-            dispatched = True
-        except Exception as e:
-            logger.error(f"[SCAN] Celery dispatch failed: {e}")
+    # Try Celery first (Fail-fast in production)
+    try:
+        from app.tasks.scan_tasks import execute_scan
+        logger.info(f"[SCAN {db_scan.id}] [API] Dispatching (dry_run={is_dry_run})")
+        
+        # apply_async allows for fail-fast status check
+        task_res = execute_scan.apply_async(
+            args=[db_scan.id, req.target_url, is_dry_run],
+            task_id=f"scan_{db_scan.id}"
+        )
+        
+        if not task_res.id:
+            raise RuntimeError("Celery failed to return a task ID")
+            
+        logger.info(f"[SCAN {db_scan.id}] [API] Successfully dispatched task_id={task_res.id}")
 
-    # Dev fallback or local execution if Celery failed
-    if not dispatched and settings.ENVIRONMENT == "development":
-        logger.info(f"[SCAN] Using BackgroundTasks fallback for scan_id={db_scan.id}")
+    except Exception as e:
+        logger.error(f"[SCAN {db_scan.id}] [API] Dispatch failed: {e}")
+        
+        # Production: FAIL FAST. No silent fallback.
+        if settings.ENVIRONMENT != "development":
+            raise HTTPException(
+                status_code=503, 
+                detail="Scanning engine temporarily unavailable"
+            )
+        
+        # Development: Silent fallback for local ease-of-use
+        logger.warning(f"[SCAN {db_scan.id}] [API] Falling back to BackgroundTasks (DEV ONLY)")
         from app.services.scan_orchestrator import run_synchronous_orchestrator
-        background_tasks.add_task(run_synchronous_orchestrator, db_scan.id, req.target_url, req.scan_type)
-        dispatched = True
+        background_tasks.add_task(
+            run_synchronous_orchestrator, 
+            db_scan.id, 
+            req.target_url, 
+            req.scan_type, 
+            is_dry_run=is_dry_run
+        )
 
     return db_scan
 

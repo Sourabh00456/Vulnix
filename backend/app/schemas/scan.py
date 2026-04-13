@@ -6,6 +6,7 @@ class ScanRequest(BaseModel):
     target_url: str
     scan_type: Optional[str] = "quick"
     schedule_type: Optional[str] = "none"
+    is_dry_run: bool = False
 
 
 class ScanResponse(BaseModel):

@@ -72,6 +72,11 @@ def log_and_publish(db: Session, scan_id: str, message: str, progress: int, curr
     
     # Publish to Redis
     event_type = "error" if is_error else "log"
+    # Standardize logs
+    tag = "[ERROR]" if is_error else "[INFO]"
+    full_msg = f"[SCAN {scan_id}] [PIPELINE] {tag} {message}"
+    print(full_msg)
+    
     publish_event(scan_id, event_type, progress, current_step, {"log": message})
 
 def run_recon(db: Session, scan_id: str, target: str):
@@ -108,7 +113,7 @@ def run_nmap(db: Session, scan_id: str, ip: str, domain: str):
             ['nmap', '-sV', '-F', domain], 
             capture_output=True, 
             text=True,
-            timeout=120
+            timeout=120 # Explicit timeout
         )
         for line in result.stdout.splitlines():
             if '/tcp' in line and 'open' in line:
@@ -267,23 +272,34 @@ def run_ai_and_finalize(db: Session, scan_id: str, open_ports: list, zap_alerts:
     
     publish_event(scan_id, "completed", 100, "Completed", {"log": "Pipeline executed successfully"})
 
-def run_synchronous_orchestrator(scan_id: str, target: str, scan_type: str = "deep"):
+def run_synchronous_orchestrator(scan_id: str, target: str, scan_type: str = "deep", is_dry_run: bool = False):
     db: Session = SessionLocal()
     update_db_state(db, scan_id, 5, "Initializing", "running")
-    publish_event(scan_id, "progress", 5, f"Initializing {scan_type.upper()} Scan")
-    
-    print(f"[PIPELINE] Starting scan {scan_id} for target {target}")
+    # Health/Dry-run logging
+    prefix = "[DRY-RUN]" if is_dry_run else "[LIVE]"
+    log_and_publish(db, scan_id, f"Initializing {prefix} {scan_type.upper()} Scan", 5, "Initializing")
     
     try:
-        # Check if we should use mock data (Only in development and if configured)
-        if settings.ENVIRONMENT == "development" and settings.MOCK_SCANS_IN_DEV:
-            log_and_publish(db, scan_id, "[DEV] Environment detected. Generating high-quality mock findings...", 20, "Simulation")
-            time.sleep(2) # Simulate work
+        # ── 1. Strict Environment Guardrails ────────────────────────────────
+        if settings.ENVIRONMENT == "production" and is_dry_run:
+            # In production, dry_run is allowed but strictly returns simulation data
+            log_and_publish(db, scan_id, "Dry-run enabled in production (Diagnostic Mode)", 10, "Initializing")
+        
+        if settings.ENVIRONMENT == "development":
+            # In dev, we can force real scans if configured, but default to mock
+            if not is_dry_run and not settings.MOCK_SCANS_IN_DEV:
+                log_and_publish(db, scan_id, "Dev environment: Using real scan tools", 10, "Initializing")
+            else:
+                is_dry_run = True # Force dry-run in dev by default
+        
+        # ── 2. Handle Simulation / Dry-Run ──────────────────────────────────
+        if is_dry_run:
+            log_and_publish(db, scan_id, "Simulating execution pipeline...", 20, "Simulation")
+            time.sleep(1) # Simulate logic latency
             
             mock_vulns = get_mock_vulnerabilities()
             scan = db.query(models.Scan).filter(models.Scan.id == scan_id).first()
             if scan:
-                scan.status = "completed"
                 scan.threat_score = 42.0
                 scan.progress = 100
                 scan.current_step = "Completed"
@@ -295,34 +311,35 @@ def run_synchronous_orchestrator(scan_id: str, target: str, scan_type: str = "de
                     db.add(db_vuln)
                 db.commit()
             
-            log_and_publish(db, scan_id, "[PIPELINE] Simulation complete. Results saved.", 100, "Completed")
-            publish_event(scan_id, "completed", 100, "Completed", {"log": "Pipeline executed successfully (MOCK)"})
+            log_and_publish(db, scan_id, "Pipeline simulation complete.", 100, "Completed")
+            publish_event(scan_id, "completed", 100, "Completed", {"log": "Pipeline executed successfully (DRY-RUN)"})
             return
 
-        # Regular execution pipeline
-        print(f"[PIPELINE] [{scan_id}] Phase: Reconnaisance")
+        # ── 3. Regular Execution Pipeline ───────────────────────────────────
+        log_and_publish(db, scan_id, "Phase: Reconnaisance", 15, "Recon")
         domain, ip = run_recon(db, scan_id, target)
         
-        print(f"[PIPELINE] [{scan_id}] Phase: Nmap Port Scanning")
+        log_and_publish(db, scan_id, "Phase: Nmap Port Scanning", 30, "Nmap")
         open_ports = run_nmap(db, scan_id, ip, domain)
         
         zap_alerts = []
         if scan_type.lower() == "deep":
-            print(f"[PIPELINE] [{scan_id}] Phase: ZAP Web Spidering")
+            log_and_publish(db, scan_id, "Phase: ZAP Web Spidering", 50, "ZAP")
             zap_alerts = run_zap(db, scan_id, target)
         else:
             log_and_publish(db, scan_id, "Skipping ZAP Web Spider (Quick Scan)", 45, "ZAP")
             update_db_state(db, scan_id, 70, "ZAP")
             
-        print(f"[PIPELINE] [{scan_id}] Phase: AI Analysis")
+        log_and_publish(db, scan_id, "Phase: AI Analysis & Normalization", 80, "AI Analysis")
         run_ai_and_finalize(db, scan_id, open_ports, zap_alerts)
         
-        print(f"[PIPELINE] [{scan_id}] Completed Successfully")
+        log_and_publish(db, scan_id, "Pipeline executed successfully", 100, "Completed")
         
     except Exception as general_error:
-        print(f"[PIPELINE] [{scan_id}] CRITICAL ERROR: {general_error}")
-        update_db_state(db, scan_id, 0, "Failed", "failed")
+        import traceback
+        tb = traceback.format_exc()
         log_and_publish(db, scan_id, f"CRITICAL RUNTIME ERROR: {str(general_error)}", 0, "Failed", is_error=True)
+        # Status "failed" handles by worker for high-level atomicity
         raise general_error
     finally:
         db.close()
