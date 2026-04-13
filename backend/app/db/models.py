@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, JSON
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 import uuid
@@ -67,8 +66,8 @@ class Vulnerability(Base):
     confidence = Column(Float, default=1.0)
     
     timestamp = Column(DateTime, default=datetime.utcnow)
-    # Using String if SQLite/fallback, or JSONB if strictly Postgres:
-    raw_data = Column(JSONB) 
+    # Using standard JSON type for cross-platform compatibility:
+    raw_data = Column(JSON) 
     
     scan = relationship("Scan", back_populates="vulnerabilities")
 

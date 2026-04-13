@@ -28,11 +28,12 @@ export default function RegisterPage() {
       });
 
       if (res.data.access_token) {
-        localStorage.setItem("breachme_token", res.data.access_token);
+        localStorage.setItem("vulnix_auth_token", res.data.access_token);
         router.push("/dashboard");
       }
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.detail || "Failed to register");
+      const detail = err.response?.data?.detail;
+      setErrorMsg(typeof detail === "string" ? detail : (typeof detail === "object" ? JSON.stringify(detail) : "Failed to register"));
     } finally {
       setLoading(false);
     }

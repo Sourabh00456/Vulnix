@@ -9,9 +9,35 @@ from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
 from app.db import models
+from app.core.config import settings
 from app.services.scanner_zap import ZapService
 from app.services import ai_engine
 from app.core.redis_client import publish_event
+
+def get_mock_vulnerabilities():
+    """Returns a set of sample vulnerabilities for development testing."""
+    return [
+        {
+            "type": "OPEN_PORT",
+            "severity": "CRITICAL",
+            "source": "MOCK",
+            "endpoint": ":21",
+            "description": "[DEV MOCK] FTP service exposed. Allows unauthenticated file transfer.",
+            "fix": "Disable FTP or use SFTP/FTPS with strong authentication.",
+            "confidence": 1.0,
+            "raw_data": {"port": "21/tcp", "service": "ftp", "version": "vsftpd 3.0.3"}
+        },
+        {
+            "type": "WEB_VULNERABILITY",
+            "severity": "HIGH",
+            "source": "MOCK",
+            "endpoint": "/api/login",
+            "description": "[DEV MOCK] Potential SQL Injection detected in login endpoint.",
+            "fix": "Use parameterized queries or an ORM to handle database interactions safely.",
+            "confidence": 0.9,
+            "raw_data": {"alert": "SQL Injection", "risk": "3", "confidence": "2"}
+        }
+    ]
 
 def update_db_state(db: Session, scan_id: str, progress: int, current_step: str, status: str = "running"):
     scan = db.query(models.Scan).filter(models.Scan.id == scan_id).first()
@@ -245,22 +271,58 @@ def run_synchronous_orchestrator(scan_id: str, target: str, scan_type: str = "de
     db: Session = SessionLocal()
     update_db_state(db, scan_id, 5, "Initializing", "running")
     publish_event(scan_id, "progress", 5, f"Initializing {scan_type.upper()} Scan")
+    
+    print(f"[PIPELINE] Starting scan {scan_id} for target {target}")
+    
     try:
+        # Check if we should use mock data (Only in development and if configured)
+        if settings.ENVIRONMENT == "development" and settings.MOCK_SCANS_IN_DEV:
+            log_and_publish(db, scan_id, "[DEV] Environment detected. Generating high-quality mock findings...", 20, "Simulation")
+            time.sleep(2) # Simulate work
+            
+            mock_vulns = get_mock_vulnerabilities()
+            scan = db.query(models.Scan).filter(models.Scan.id == scan_id).first()
+            if scan:
+                scan.status = "completed"
+                scan.threat_score = 42.0
+                scan.progress = 100
+                scan.current_step = "Completed"
+                
+                # Clear and add mocks
+                db.query(models.Vulnerability).filter(models.Vulnerability.scan_id == scan_id).delete()
+                for v in mock_vulns:
+                    db_vuln = models.Vulnerability(scan_id=scan.id, **v)
+                    db.add(db_vuln)
+                db.commit()
+            
+            log_and_publish(db, scan_id, "[PIPELINE] Simulation complete. Results saved.", 100, "Completed")
+            publish_event(scan_id, "completed", 100, "Completed", {"log": "Pipeline executed successfully (MOCK)"})
+            return
+
+        # Regular execution pipeline
+        print(f"[PIPELINE] [{scan_id}] Phase: Reconnaisance")
         domain, ip = run_recon(db, scan_id, target)
+        
+        print(f"[PIPELINE] [{scan_id}] Phase: Nmap Port Scanning")
         open_ports = run_nmap(db, scan_id, ip, domain)
         
         zap_alerts = []
         if scan_type.lower() == "deep":
+            print(f"[PIPELINE] [{scan_id}] Phase: ZAP Web Spidering")
             zap_alerts = run_zap(db, scan_id, target)
         else:
             log_and_publish(db, scan_id, "Skipping ZAP Web Spider (Quick Scan)", 45, "ZAP")
             update_db_state(db, scan_id, 70, "ZAP")
             
+        print(f"[PIPELINE] [{scan_id}] Phase: AI Analysis")
         run_ai_and_finalize(db, scan_id, open_ports, zap_alerts)
+        
+        print(f"[PIPELINE] [{scan_id}] Completed Successfully")
+        
     except Exception as general_error:
-        update_db_state(db, scan_id, 0, "Failed", "failed") # Setting progress 0 or keeping it, but status Failed
+        print(f"[PIPELINE] [{scan_id}] CRITICAL ERROR: {general_error}")
+        update_db_state(db, scan_id, 0, "Failed", "failed")
         log_and_publish(db, scan_id, f"CRITICAL RUNTIME ERROR: {str(general_error)}", 0, "Failed", is_error=True)
-        # Raise it back so Celery knows it failed and can re-attempt tracking
         raise general_error
     finally:
         db.close()

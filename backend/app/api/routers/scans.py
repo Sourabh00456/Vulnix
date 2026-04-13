@@ -4,7 +4,7 @@ import requests
 import socket
 import urllib.parse
 from datetime import datetime, date, timedelta
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
@@ -40,6 +40,7 @@ def verify_target(target_url: str, token: Optional[str]) -> bool:
 def create_scan(
     request: Request,
     req: ScanRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
@@ -67,10 +68,6 @@ def create_scan(
         except Exception as e:
             logger.warning(f"[SCAN] Quota check failed (non-fatal): {e}")
 
-    # ── Domain verification (bypassed for MVP) ────────────────────────────────
-    # verify_target(req.target_url, current_user.verification_token)
-    # Skipped — allow all targets for demo
-
     # ── Scheduling ────────────────────────────────────────────────────────────
     next_run = None
     if req.schedule_type == "daily":
@@ -88,6 +85,7 @@ def create_scan(
             next_run_at=next_run,
             progress=0,
             current_step="queued",
+            status="queued"
         )
         db.add(db_scan)
         db.commit()
@@ -98,15 +96,25 @@ def create_scan(
         logger.error(f"[SCAN] DB insert failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to create scan record")
 
-    # ── Dispatch to Celery worker ─────────────────────────────────────────────
-    try:
-        from app.tasks.scan_tasks import execute_scan
-        execute_scan.delay(db_scan.id, req.target_url)
-        logger.info(f"[SCAN] Dispatched to Celery: scan_id={db_scan.id}")
-    except Exception as e:
-        # Celery may not be running — log but don't fail the API response.
-        # The scan record exists; it will stay in 'queued' state.
-        logger.error(f"[SCAN] Celery dispatch failed (scan queued but not started): {e}", exc_info=True)
+    # ── Dispatch mechanism ────────────────────────────────────────────────────
+    dispatched = False
+    
+    # Try Celery first in production
+    if settings.ENVIRONMENT != "development":
+        try:
+            from app.tasks.scan_tasks import execute_scan
+            execute_scan.delay(db_scan.id, req.target_url)
+            logger.info(f"[SCAN] Dispatched to Celery: scan_id={db_scan.id}")
+            dispatched = True
+        except Exception as e:
+            logger.error(f"[SCAN] Celery dispatch failed: {e}")
+
+    # Dev fallback or local execution if Celery failed
+    if not dispatched and settings.ENVIRONMENT == "development":
+        logger.info(f"[SCAN] Using BackgroundTasks fallback for scan_id={db_scan.id}")
+        from app.services.scan_orchestrator import run_synchronous_orchestrator
+        background_tasks.add_task(run_synchronous_orchestrator, db_scan.id, req.target_url, req.scan_type)
+        dispatched = True
 
     return db_scan
 

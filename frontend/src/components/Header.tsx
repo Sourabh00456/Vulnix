@@ -1,13 +1,27 @@
-"use client";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
 
 const isAppRoute = (p: string) =>
-  p.startsWith("/dashboard") || p.startsWith("/analytics");
+  p.startsWith("/dashboard") || p.startsWith("/analytics") || p.startsWith("/scan");
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  useEffect(() => {
+    // Check for token on mount and when pathname changes
+    const token = typeof window !== "undefined" ? localStorage.getItem("vulnix_auth_token") : null;
+    setIsLoggedIn(!!token);
+  }, [pathname]);
+
+  const handleSignOut = () => {
+    localStorage.removeItem("vulnix_auth_token");
+    setIsLoggedIn(false);
+    router.push("/login");
+  };
+
   const appMode = isAppRoute(pathname);
 
   return (
@@ -41,14 +55,17 @@ export default function Header() {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        {appMode ? (
+        {isLoggedIn ? (
           <>
             <Link href="/dashboard" className="text-on-surface-variant hover:text-white transition-colors">
               <span className="material-symbols-outlined text-xl">dashboard</span>
             </Link>
-            <Link href="/analytics" className="text-on-surface-variant hover:text-white transition-colors">
-              <span className="material-symbols-outlined text-xl">bar_chart</span>
-            </Link>
+            <button 
+              onClick={handleSignOut}
+              className="text-xs font-mono uppercase tracking-widest text-on-surface-variant hover:text-white transition-colors border border-white/10 px-3 py-1.5 rounded-lg"
+            >
+              Sign Out
+            </button>
           </>
         ) : (
           <>

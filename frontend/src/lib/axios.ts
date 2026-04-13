@@ -23,7 +23,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem("breachme_token");
+      const token = localStorage.getItem("vulnix_auth_token");
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }

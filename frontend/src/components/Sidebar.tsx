@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/scan",      icon: "radar",             label: "Scanner" },
@@ -10,6 +10,13 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleSignOut = () => {
+    localStorage.removeItem("vulnix_auth_token");
+    router.push("/login");
+  };
+
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 flex-col pt-20 bg-surface-container-lowest/80 backdrop-blur-2xl border-r border-white/5 z-40 hidden lg:flex">
       <div className="px-6 mb-8">
@@ -46,13 +53,13 @@ export default function Sidebar() {
         })}
       </nav>
       <div className="p-6">
-        <Link
-          href="/login"
+        <button
+          onClick={handleSignOut}
           className="w-full py-3 flex items-center justify-center gap-2 bg-surface-container-high text-on-surface-variant hover:text-on-surface font-mono text-xs uppercase tracking-widest rounded-xl transition-colors"
         >
           <span className="material-symbols-outlined text-base">logout</span>
           Sign Out
-        </Link>
+        </button>
       </div>
     </aside>
   );

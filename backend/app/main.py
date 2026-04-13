@@ -33,23 +33,23 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 
-# ── CORS ──────────────────────────────────────────────────────────────────────
-# Build origins list from env var (comma-separated). Falls back to the
-# production Vercel URL. The regex covers all Vercel preview deploy URLs.
-_raw_origins = os.getenv(
-    "ALLOWED_ORIGINS",
-    "https://vulnix-six.vercel.app",
-)
-ALLOWED_ORIGINS: list[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+_default_origins = "https://vulnix-six.vercel.app"
+ALLOWED_ORIGINS: list[str] = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()]
+
+if settings.ENVIRONMENT == "development":
+    dev_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000", "http://127.0.0.1:8000"]
+    for origin in dev_origins:
+        if origin not in ALLOWED_ORIGINS:
+            ALLOWED_ORIGINS.append(origin)
 
 logger.info(f"CORS allowed origins: {ALLOWED_ORIGINS}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"https://vulnix.*\.vercel\.app",  # all preview URLs
+    allow_origin_regex=None if settings.ENVIRONMENT == "development" else r"https://vulnix.*\.vercel\.app",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=86400,
